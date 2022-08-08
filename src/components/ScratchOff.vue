@@ -1,16 +1,23 @@
 <template>
   <div style="position:relative; width: 300px;height: 300px;" class="scratch-box">
     <div class="secret-container">
-      <template v-if="showContent">
+      <template v-if="state.showContent">
         <slot name="secret">secret</slot>
       </template>
     </div>
     <canvas class="scratch" ref="scratch"/>
   </div>
-  <button :disabled="!showContent" style="margin-top: 20px;" @click="reset()">重新刮</button>
+  <button :disabled="!state.showContent" style="margin-top: 20px;" @click="reset()">重新刮</button>
 </template>
 
 <script>
+import {
+  reactive,
+  ref,
+  onMounted,
+  nextTick,
+  watch,
+} from 'vue'
 import brushImage from '../assets/brush.png'
 import coverImage from '../assets/cover.png'
 
@@ -18,56 +25,67 @@ export default {
   name: 'scratchOff',
   components: {},
 
-  mounted: function () {
-    this.$nextTick(() => {
-      this.init()
-    })
-  },
-
-  data () {
-    return {
+  setup (props) {
+    const scratch = ref(null)
+    const state = reactive({
       isDrawing: false,
       lastPoint: null,
       ctx: null,
+      brush: null,
+      cover: null,
       showContent: false,
       showAlert: true,
       distCount: 0,
-    }
-  },
+    })
 
-  methods: {
-    init () {
-      this.showContent = false
-      const canvas = this.$refs.scratch
+    onMounted(() => {
+
+    })
+    nextTick(() => {
+      init()
+    })
+
+    watch(
+        () => state.distCount, (curVal, preVal) => {
+          if (curVal > 1000 && state.showAlert) {
+            alert('哭啊～沒中獎')
+            touchEnd()
+            state.showAlert = false
+          }
+        }, { immediate: true },
+    )
+
+    function init () {
+      state.showContent = false
+      const canvas = scratch.value
 
       canvas.width = canvas.parentElement.offsetWidth
       canvas.height = canvas.parentElement.offsetHeight
-      console.log(canvas.width, canvas.height)
 
-      canvas.addEventListener('mousedown', this.touchStart)
-      canvas.addEventListener('touchstart', this.touchStart)
-      canvas.addEventListener('mousemove', this.touchMove)
-      canvas.addEventListener('touchmove', this.touchMove)
-      canvas.addEventListener('mouseup', this.touchEnd)
-      canvas.addEventListener('touchend', this.touchEnd)
+      canvas.addEventListener('mousedown', touchStart)
+      canvas.addEventListener('touchstart', touchStart)
+      canvas.addEventListener('mousemove', touchMove)
+      canvas.addEventListener('touchmove', touchMove)
+      canvas.addEventListener('mouseup', touchEnd)
+      canvas.addEventListener('touchend', touchEnd)
 
-      this.ctx = canvas.getContext('2d')
+      state.ctx = canvas.getContext('2d')
 
-      this.brush = new Image()
-      this.brush.src = brushImage
+      state.brush = new Image()
+      state.brush.src = brushImage
 
-      this.cover = new Image()
-      this.cover.src = coverImage
-      this.cover.onload = () => {
-        this.ctx.drawImage(this.cover, 0, 0, canvas.width, canvas.height)
+      state.cover = new Image()
+      state.cover.src = coverImage
+      state.cover.onload = () => {
+        state.ctx.drawImage(state.cover, 0, 0, canvas.width, canvas.height)
 
         // 避免內容比圖片早顯示
-        this.showContent = true
+        state.showContent = true
       }
-    },
+    }
 
-    getPosition (event) {
-      let target = this.$refs.scratch
+    function getPosition (event) {
+      let target = scratch.value
       let offsetX = 0
       let offsetY = 0
 
@@ -81,76 +99,74 @@ export default {
       const x = (event.pageX || event.touches[0].clientX) - offsetX
       const y = (event.pageY || event.touches[0].clientY) - offsetY
       return { x, y }
-    },
+    }
 
-    touchStart (event) {
-      console.log(event.target)
-      this.isDrawing = true
-      this.lastPoint = this.getPosition(event)
-      this.ctx.globalCompositeOperation = 'destination-out'
-    },
+    function touchStart (event) {
+      state.isDrawing = true
+      state.lastPoint = getPosition(event)
+      state.ctx.globalCompositeOperation = 'destination-out'
+    }
 
-    touchMove (event) {
-      if (!this.isDrawing) return
+    function touchMove (event) {
+      if (!state.isDrawing) return
       event.preventDefault()
 
-      const ctx = this.ctx
-      const a = this.lastPoint
-      const b = this.getPosition(event)
-      const dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2))
-      const angle = Math.atan2(b.x - a.x, b.y - a.y)
-      const offsetX = this.brush.width / 2
-      const offsetY = this.brush.height / 2
+      let ctx = state.ctx
+      let a = state.lastPoint
+      let b = getPosition(event)
+      let dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2))
+      let angle = Math.atan2(b.x - a.x, b.y - a.y)
+      let offsetX = state.brush.width / 2
+      let offsetY = state.brush.height / 2
 
-      this.distCount += dist
+      state.distCount += dist
 
       for (let x, y, i = 0; i < dist; i++) {
         x = a.x + Math.sin(angle) * i - offsetX
         y = a.y + Math.cos(angle) * i - offsetY
-        ctx.drawImage(this.brush, x, y)
+        ctx.drawImage(state.brush, x, y)
       }
 
-      this.lastPoint = b
-    },
+      state.lastPoint = b
+    }
 
-    reset() {
-      this.touchEnd()
-      this.showAlert = true
-      this.distCount = 0
-      this.init()
-    },
+    function reset () {
+      touchEnd()
+      state.showAlert = true
+      state.distCount = 0
+      init()
+    }
 
-    touchEnd () {
-      this.isDrawing = false
-    },
+    function touchEnd () {
+      state.isDrawing = false
+    }
 
-    isOverlapped(element) {
-      let document = element.ownerDocument;
-      let {x, y, width, height} = element.getBoundingClientRect();
-      x |= 0;
-      y |= 0;
-      width |= 0;
-      height |= 0;
+    return {
+      scratch,
+      state,
+      reset,
+    }
+  },
+
+  methods: {
+    isOverlapped (element) {
+      let document = element.ownerDocument
+      let { x, y, width, height } = element.getBoundingClientRect()
+      x |= 0
+      y |= 0
+      width |= 0
+      height |= 0
       let elements = [
         document.elementFromPoint(x, y),
         document.elementFromPoint(x + width, y),
         document.elementFromPoint(x, y + height),
-        document.elementFromPoint(x + width, y + height)
-      ];
-      return elements.filter((el)=> el !== null).some((el)=> el !== element);
-    }
-
-  },
-
-  watch: {
-    distCount: function () {
-      if (this.distCount > 1000 && this.showAlert) {
-        alert('哭啊～沒中獎')
-        this.touchEnd()
-        this.showAlert = false
-      }
+        document.elementFromPoint(x + width, y + height),
+      ]
+      return elements.filter((el) => el !== null).some((el) => el !== element)
     },
+
   },
+
 }
 </script>
 
