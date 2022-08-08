@@ -10,7 +10,7 @@
   <button :disabled="!state.showContent" style="margin-top: 20px;" @click="reset()">重新刮</button>
 </template>
 
-<script>
+<script setup>
 import {
   reactive,
   ref,
@@ -18,156 +18,127 @@ import {
   nextTick,
   watch,
 } from 'vue'
-import brushImage from '../assets/brush.png'
-import coverImage from '../assets/cover.png'
 
-export default {
-  name: 'scratchOff',
-  components: {},
+const props = defineProps({
+  brushImage: String,
+  coverImage: String,
+})
 
-  setup (props) {
-    const scratch = ref(null)
-    const state = reactive({
-      isDrawing: false,
-      lastPoint: null,
-      ctx: null,
-      brush: null,
-      cover: null,
-      showContent: false,
-      showAlert: true,
-      distCount: 0,
-    })
+const scratch = ref(null)
+const state = reactive({
+  isDrawing: false,
+  lastPoint: null,
+  ctx: null,
+  brush: null,
+  cover: null,
+  showContent: false,
+  showAlert: true,
+  distCount: 0,
+})
 
-    onMounted(() => {
+onMounted(() => {
+})
 
-    })
-    nextTick(() => {
-      init()
-    })
+nextTick(() => {
+  init()
+})
 
-    watch(
-        () => state.distCount, (curVal, preVal) => {
-          if (curVal > 1000 && state.showAlert) {
-            alert('哭啊～沒中獎')
-            touchEnd()
-            state.showAlert = false
-          }
-        }, { immediate: true },
-    )
-
-    function init () {
-      state.showContent = false
-      const canvas = scratch.value
-
-      canvas.width = canvas.parentElement.offsetWidth
-      canvas.height = canvas.parentElement.offsetHeight
-
-      canvas.addEventListener('mousedown', touchStart)
-      canvas.addEventListener('touchstart', touchStart)
-      canvas.addEventListener('mousemove', touchMove)
-      canvas.addEventListener('touchmove', touchMove)
-      canvas.addEventListener('mouseup', touchEnd)
-      canvas.addEventListener('touchend', touchEnd)
-
-      state.ctx = canvas.getContext('2d')
-
-      state.brush = new Image()
-      state.brush.src = brushImage
-
-      state.cover = new Image()
-      state.cover.src = coverImage
-      state.cover.onload = () => {
-        state.ctx.drawImage(state.cover, 0, 0, canvas.width, canvas.height)
-
-        // 避免內容比圖片早顯示
-        state.showContent = true
+watch(
+    () => state.distCount, (curVal, preVal) => {
+      if (curVal > 1000 && state.showAlert) {
+        alert('哭啊～沒中獎')
+        touchEnd()
+        state.showAlert = false
       }
-    }
+    }, { immediate: true },
+)
 
-    function getPosition (event) {
-      let target = scratch.value
-      let offsetX = 0
-      let offsetY = 0
+function init () {
+  state.showContent = false
+  const canvas = scratch.value
 
-      if (target.offsetParent !== undefined) {
-        while ((target = target.offsetParent)) {
-          offsetX += target.offsetLeft
-          offsetY += target.offsetTop
-        }
-      }
+  canvas.width = canvas.parentElement.offsetWidth
+  canvas.height = canvas.parentElement.offsetHeight
 
-      const x = (event.pageX || event.touches[0].clientX) - offsetX
-      const y = (event.pageY || event.touches[0].clientY) - offsetY
-      return { x, y }
-    }
+  canvas.addEventListener('mousedown', touchStart)
+  canvas.addEventListener('touchstart', touchStart)
+  canvas.addEventListener('mousemove', touchMove)
+  canvas.addEventListener('touchmove', touchMove)
+  canvas.addEventListener('mouseup', touchEnd)
+  canvas.addEventListener('touchend', touchEnd)
 
-    function touchStart (event) {
-      state.isDrawing = true
-      state.lastPoint = getPosition(event)
-      state.ctx.globalCompositeOperation = 'destination-out'
-    }
+  state.ctx = canvas.getContext('2d')
 
-    function touchMove (event) {
-      if (!state.isDrawing) return
-      event.preventDefault()
+  state.brush = new Image()
+  state.brush.src = props.brushImage
 
-      let ctx = state.ctx
-      let a = state.lastPoint
-      let b = getPosition(event)
-      let dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2))
-      let angle = Math.atan2(b.x - a.x, b.y - a.y)
-      let offsetX = state.brush.width / 2
-      let offsetY = state.brush.height / 2
+  state.cover = new Image()
+  state.cover.src = props.coverImage
+  state.cover.onload = () => {
+    state.ctx.drawImage(state.cover, 0, 0, canvas.width, canvas.height)
 
-      state.distCount += dist
-
-      for (let x, y, i = 0; i < dist; i++) {
-        x = a.x + Math.sin(angle) * i - offsetX
-        y = a.y + Math.cos(angle) * i - offsetY
-        ctx.drawImage(state.brush, x, y)
-      }
-
-      state.lastPoint = b
-    }
-
-    function reset () {
-      touchEnd()
-      state.showAlert = true
-      state.distCount = 0
-      init()
-    }
-
-    function touchEnd () {
-      state.isDrawing = false
-    }
-
-    return {
-      scratch,
-      state,
-      reset,
-    }
-  },
-
-  methods: {
-    isOverlapped (element) {
-      let document = element.ownerDocument
-      let { x, y, width, height } = element.getBoundingClientRect()
-      x |= 0
-      y |= 0
-      width |= 0
-      height |= 0
-      let elements = [
-        document.elementFromPoint(x, y),
-        document.elementFromPoint(x + width, y),
-        document.elementFromPoint(x, y + height),
-        document.elementFromPoint(x + width, y + height),
-      ]
-      return elements.filter((el) => el !== null).some((el) => el !== element)
-    },
-
-  },
-
+    // 避免內容比圖片早顯示
+    state.showContent = true
+  }
 }
+
+function getPosition (event) {
+  let target = scratch.value
+  let offsetX = 0
+  let offsetY = 0
+
+  if (target.offsetParent !== undefined) {
+    while ((target = target.offsetParent)) {
+      offsetX += target.offsetLeft
+      offsetY += target.offsetTop
+    }
+  }
+
+  const x = (event.pageX || event.touches[0].clientX) - offsetX
+  const y = (event.pageY || event.touches[0].clientY) - offsetY
+  return { x, y }
+}
+
+function touchStart (event) {
+  state.isDrawing = true
+  state.lastPoint = getPosition(event)
+  state.ctx.globalCompositeOperation = 'destination-out'
+}
+
+function touchMove (event) {
+  if (!state.isDrawing) return
+  event.preventDefault()
+
+  let ctx = state.ctx
+  let a = state.lastPoint
+  let b = getPosition(event)
+  let dist = Math.sqrt(Math.pow(b.x - a.x, 2) + Math.pow(b.y - a.y, 2))
+  let angle = Math.atan2(b.x - a.x, b.y - a.y)
+  let offsetX = state.brush.width / 2
+  let offsetY = state.brush.height / 2
+
+  state.distCount += dist
+
+  for (let x, y, i = 0; i < dist; i++) {
+    x = a.x + Math.sin(angle) * i - offsetX
+    y = a.y + Math.cos(angle) * i - offsetY
+    ctx.drawImage(state.brush, x, y)
+  }
+
+  state.lastPoint = b
+}
+
+function reset () {
+  touchEnd()
+  state.showAlert = true
+  state.distCount = 0
+  init()
+}
+
+function touchEnd () {
+  state.isDrawing = false
+}
+
 </script>
 
 <style>
@@ -191,8 +162,6 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-
-
 }
 
 .scratch {
